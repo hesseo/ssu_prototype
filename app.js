@@ -8,7 +8,6 @@
   var MEASURE_MS = 1800;
   var REWARD_POINTS = 100;
   var BASE_COUNT = 12;
-  var CLOCK = '19:27';
 
   // img/sub_map.png(786×1544) 기준 핀 끝점 좌표
   var MAP_W = 786, MAP_H = 1544;
@@ -66,6 +65,7 @@
     { id: 'settings', label: '설정', icon: 'gear' }
   ];
 
+  // failFirst: 첫 측정은 실패(잔여물 감지)로 보여줘서 실패 → 재시도 흐름까지 시연
   var opts = { failFirst: true, startPoints: 1250 };
 
   function initialState() {
@@ -156,10 +156,7 @@
     megaphone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l7 4V6L7 10z"/><path d="M17.5 9.5a3.5 3.5 0 0 1 0 5"/></svg>',
     headset: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/></svg>',
     gear: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
-    backDark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17212B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
-    signal: '<svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>',
-    wifi: '<svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.3A10.7 10.7 0 0 0 8 .4C5.2.4 2.5 1.5.5 3.4l1.2 1.3A9 9 0 0 1 8 2.2z"/><path d="M8 5.6c1.5 0 2.9.6 4 1.5l1.2-1.3A7.6 7.6 0 0 0 8 3.8a7.6 7.6 0 0 0-5.2 2l1.2 1.3c1.1-.9 2.5-1.5 4-1.5z"/><path d="M8 9.1c.7 0 1.3.2 1.8.6L8 11.6 6.2 9.7c.5-.4 1.1-.6 1.8-.6z"/></svg>',
-    battery: '<svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2.2" fill="currentColor"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2z" fill="currentColor" opacity=".45"/></svg>'
+    backDark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17212B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
   };
 
   /* ---------- Screens ---------- */
@@ -459,18 +456,8 @@
       '</nav>';
   }
 
-  function chrome(s) {
-    var lightBar = s === 'home' || s === 'qr' || s === 'measuring' || s === 'success';
-    var lightIndicator = s === 'qr' || s === 'measuring';
-    // 스크롤되는 밝은 화면은 상태바에 배경을 깔아 내용이 시계 밑으로 겹치지 않게
-    var barBg = s === 'my' || s === 'history' ? ' statusbar--soft' : s === 'voucher' ? ' statusbar--mint' : '';
-    return '' +
-      '<div class="statusbar' + (lightBar ? ' statusbar--light' : '') + barBg + '" aria-hidden="true">' +
-        '<span>' + CLOCK + '</span>' +
-        '<span class="statusbar__icons">' + ICON.signal + ICON.wifi + ICON.battery + '</span>' +
-      '</div>' +
-      '<div class="home-indicator' + (lightIndicator ? ' home-indicator--light' : '') + '" aria-hidden="true"></div>' +
-      (state.toast ? '<div class="toast" role="status">' + state.toast + '</div>' : '');
+  function toast() {
+    return state.toast ? '<div class="toast" role="status">' + state.toast + '</div>' : '';
   }
 
   /* ---------- Render ---------- */
@@ -494,7 +481,7 @@
 
     if (s === 'home' || s === 'map' || s === 'voucher' || s === 'my') html += nav();
     if (s === 'map' && state.sheet) html += sheet();
-    html += chrome(s);
+    html += toast();
 
     app.innerHTML = html;
 
@@ -522,7 +509,9 @@
         if (opts.failFirst && state.tries === 0) {
           setState({ screen: 'fail', tries: state.tries + 1 });
         } else {
-          var rec = { date: '오늘', time: CLOCK, place: state.place, floor: state.floor };
+          var now = new Date();
+          var time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+          var rec = { date: '오늘', time: time, place: state.place, floor: state.floor };
           setState({ screen: 'success', tries: 0, earned: state.earned + REWARD_POINTS, cnt: state.cnt + 1, history: [rec].concat(state.history) });
         }
       }, MEASURE_MS);
@@ -541,23 +530,6 @@
     if (!el || !app.contains(el)) return;
     var fn = actions[el.dataset.action];
     if (fn) fn(el);
-  });
-
-  /* ---------- Prototype controls ---------- */
-  var failInput = document.getElementById('opt-fail-first');
-  var pointsInput = document.getElementById('opt-start-points');
-
-  failInput.addEventListener('change', function () { opts.failFirst = failInput.checked; });
-  pointsInput.addEventListener('input', function () {
-    var v = parseInt(pointsInput.value, 10);
-    opts.startPoints = isNaN(v) ? 0 : Math.max(0, v);
-    render();
-  });
-  document.getElementById('opt-reset').addEventListener('click', function () {
-    clearTimeout(timer);
-    clearTimeout(toastTimer);
-    state = initialState();
-    render();
   });
 
   render();

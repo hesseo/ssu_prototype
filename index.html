@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3E9BEF">
   <title>SSU:CLEAN 프로토타입</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,22 +12,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="stage">
-    <div class="phone" id="app" aria-live="polite"></div>
-
-    <aside class="controls" aria-label="프로토타입 설정">
-      <div class="controls__title">프로토타입 설정</div>
-      <label class="controls__row">
-        <input type="checkbox" id="opt-fail-first" checked>
-        첫 측정은 실패(잔여물 감지)로 처리
-      </label>
-      <label class="controls__row">
-        시작 포인트
-        <input type="number" id="opt-start-points" value="1250" min="0" max="99999" step="50">
-      </label>
-      <button type="button" id="opt-reset" class="controls__reset">처음부터 다시</button>
-    </aside>
-  </main>
+  <div class="app" id="app" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>

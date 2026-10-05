@@ -300,7 +300,7 @@
           '</div>' +
           '<div class="cup__title">컵을 수거대 위에 올려주세요</div>' +
           '<div class="cup__desc">올리면 무게를 자동으로 측정해요<br>빈 컵으로 확인되면 바로 포인트가 적립돼요</div>' +
-          '<div class="badge">기준 20g 이하</div>' +
+          '<div class="badge">기준 25g 이하</div>' +
         '</button>' +
         '<div class="proto-note">프로토타입: 카드를 탭하면 컵을 올린 것으로 처리돼요</div>' +
         (measuring ? '<div class="dim"></div>' : '') +
@@ -315,8 +315,8 @@
           '<div class="fail__title">컵에 아직 음료가 남아 있어요</div>' +
           '<div class="fail__sub">기준 무게를 초과했어요</div>' +
           '<div class="weight"><div class="weight__label">측정 무게</div>' +
-            '<div><span class="weight__over">30g</span><span class="weight__limit"> / 기준 20g</span></div></div>' +
-          '<div class="weight-bar"><div class="weight-bar__ok" style="width:67%"></div><div class="weight-bar__over" style="width:33%"></div></div>' +
+            '<div><span class="weight__over">30g</span><span class="weight__limit"> / 기준 25g</span></div></div>' +
+          '<div class="weight-bar"><div class="weight-bar__ok" style="width:83%"></div><div class="weight-bar__over" style="width:17%"></div></div>' +
         '</div>' +
         '<div class="card steps">' +
           '<div class="steps__title">이렇게 하면 바로 통과돼요</div>' +

@@ -9,13 +9,19 @@
   var REWARD_POINTS = 100;
   var BASE_COUNT = 12;
 
-  // img/campus_map.png(1966×1176) 기준 핀 끝점 좌표
-  var MAP_W = 1966, MAP_H = 1176;
+  // img/campus_map.png(1964×1136) 픽셀 기준 좌표계
+  var MAP_W = 1964, MAP_H = 1136;
+
+  // 핀 끝점 좌표
+  // dist 는 숭덕경상관 근처에 있다고 가정한 걷는 거리 추정치(지도 1px ≈ 0.32m, 직선거리 + 20%)
   var PLACES = [
-    { id: 'sd', name: '숭덕경상관', dist: '32m', floors: ['1F', '2F', '3F'], pin: { x: 415, y: 548 } },
-    { id: 'ai', name: '안익태기념관', dist: '210m', floors: ['1F', '2F'], pin: { x: 484, y: 1066 } },
-    { id: 'hn', name: '형남공학관', dist: '260m', floors: ['1F', '3F', '5F'], pin: { x: 818, y: 1068 } }
+    { id: 'sd', name: '숭덕경상관', dist: '32m', floors: ['1F', '2F', '3F'], pin: { x: 387, y: 461 } },
+    { id: 'ai', name: '안익태기념관', dist: '150m', floors: ['1F', '2F'], pin: { x: 437, y: 838 } },
+    { id: 'hn', name: '형남공학관', dist: '190m', floors: ['1F', '3F', '5F'], pin: { x: 681, y: 840 } },
+    { id: 'mr', name: '미래관', dist: '400m', floors: ['1F', '2F', '3F', '4F'], pin: { x: 1344, y: 888 } }
   ];
+  // 지도에 처음 들어갈 때 가로 가운데로 올 지점(숭덕경상관·안익태기념관·형남공학관 사이)
+  var START_X = 501;
 
   var CHIPS = [
     { id: 'all', label: '전체' },
@@ -196,7 +202,8 @@
   function mapScreen() {
     var body;
     if (state.mapMode === 'map') {
-      body = '<div class="map__canvas" style="' + (mapView ? viewStyle(mapView) : '') + '"><img src="img/campus_map.png" alt="캠퍼스 지도" draggable="false">' +
+      body = '<div class="map__canvas" style="' + (mapView ? viewStyle(mapView) : '') + '">' +
+          '<img src="img/campus_map.png" alt="캠퍼스 지도" draggable="false">' +
         PLACES.map(function (p) {
           var on = state.sheet === p.id;
           return '<button type="button" class="map__pin' + (on ? ' map__pin--selected' : '') + '" data-action="open-sheet" data-id="' + p.id + '" aria-label="' + p.name + ' 수거대" aria-pressed="' + on + '" style="' + pos(p.pin) + '">' +
@@ -464,7 +471,7 @@
   /* ---------- Map pan / zoom ---------- */
   // 지도 이미지를 translate + scale 로 움직여요. 핀은 --inv 로 역스케일해서 크기 유지.
   // 배율 1 = 지도 높이가 화면을 꽉 채우는 크기(가로로는 넓게 남아서 좌우로 둘러볼 수 있음)
-  var MAX_ZOOM = 2;
+  var MAX_ZOOM = 2.2;
   var mapView = null;          // { x, y, s, bw } — 처음 지도에 들어갈 때 initialView 로 채움
   var pendingFocus = null;     // 다음 렌더 후 부드럽게 이동할 장소 id
 
@@ -477,11 +484,9 @@
     return { w: w, h: w * MAP_H / MAP_W };
   }
 
-  // 세 수거대가 가로 가운데 오도록 시작
   function initialView(vp) {
     var b = baseSize(vp);
-    var avgX = PLACES.reduce(function (sum, p) { return sum + p.pin.x; }, 0) / PLACES.length;
-    return { s: 1, x: vp.clientWidth / 2 - avgX / MAP_W * b.w, y: 0 };
+    return { s: 1, x: vp.clientWidth / 2 - START_X / MAP_W * b.w, y: 0 };
   }
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
@@ -534,7 +539,7 @@
     // 시트는 화면 맨 아래에 붙어 있으니, 지도에서 보이는 영역은 시트 윗변까지
     var visibleBottom = sheetEl ? app.clientHeight - sheetEl.offsetHeight : m.vp.clientHeight;
     var targetY = (72 + visibleBottom) / 2 + 30;   // 핀 끝이 살짝 아래로 오게
-    var sc = Math.max(mapView.s, 1.4);
+    var sc = Math.max(mapView.s, 1.5);
     var wx = p.pin.x / MAP_W * b.w, wy = p.pin.y / MAP_H * b.h;
     setView({ s: sc, x: W / 2 - wx * sc, y: targetY - wy * sc }, true);
   }

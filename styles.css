@@ -72,6 +72,9 @@ img { display: block; max-width: 100%; }
 }
 .btn-primary:active { transform: translateY(1px); }
 .spacer { flex: 1; }
+/* 화면이 짧아 스크롤될 때 버튼·카드가 납작하게 눌리지 않게 */
+.qr > *, .cup > *, .fail > *, .success > *, .my > *, .history > * { flex-shrink: 0; }
+.back-btn { flex: none; }
 .points { font-weight: 800; color: var(--points); letter-spacing: -.01em; }
 
 /* ===== Home ===== */
@@ -170,7 +173,7 @@ img { display: block; max-width: 100%; }
 .back-btn { width: 40px; height: 40px; border: none; border-radius: 20px; background: #3A3C40; display: flex; align-items: center; justify-content: center; padding: 0; }
 .qr__title { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
 .qr__desc { font-size: 14px; line-height: 1.5; color: #B9BEC4; margin-top: 8px; }
-.qr__frame { position: relative; height: 344px; flex: none; border-radius: 20px; background: #26282C; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; overflow: hidden; }
+.qr__frame { position: relative; height: clamp(200px, 36vh, 344px); flex: none; border-radius: 20px; background: #26282C; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; overflow: hidden; }
 .qr__corner { position: absolute; width: 36px; height: 36px; border: 0 solid #8FD3F2; }
 .qr__corner--tl { left: 22px; top: 22px; border-left-width: 3px; border-top-width: 3px; }
 .qr__corner--tr { right: 22px; top: 22px; border-right-width: 3px; border-top-width: 3px; }

@@ -35,7 +35,7 @@ img { display: block; max-width: 100%; }
 @keyframes ssuUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes ssuPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes ssuFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes ssuDrop { 0% { transform: translate(-50%, -140%); opacity: 0; } 60% { transform: translate(-50%, -96%); opacity: 1; } 100% { transform: translate(-50%, -100%); } }
+@keyframes ssuDrop { 0% { transform: translate(-50%, -140%) scale(var(--inv, 1)); opacity: 0; } 60% { transform: translate(-50%, -96%) scale(var(--inv, 1)); opacity: 1; } 100% { transform: translate(-50%, -100%) scale(var(--inv, 1)); } }
 @keyframes ssuScan { 0%, 100% { top: 22%; } 50% { top: 74%; } }
 
 /* ===== Stage / phone frame ===== */
@@ -110,10 +110,16 @@ img { display: block; max-width: 100%; }
 .map-preview img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ===== Map ===== */
-.map { background: #F2F1EE; overflow: hidden; }
-.map__canvas { position: absolute; left: 0; top: 0; width: 100%; }
-.map__canvas > img { width: 100%; height: auto; }
-.map__pin { position: absolute; transform: translate(-50%, -100%); border: none; background: none; padding: 0; line-height: 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
+.map { background: #F2F1EE; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.map__canvas { position: absolute; left: 0; top: 0; width: 100%; transform-origin: 0 0; cursor: grab; }
+.map__canvas:active { cursor: grabbing; }
+.map__canvas > img { width: 100%; height: auto; pointer-events: none; -webkit-user-drag: none; }
+.map__canvas.is-animating,
+.map__canvas.is-animating .map__pin { transition: transform .4s cubic-bezier(.2, .8, .2, 1); }
+/* 핀은 bottom-center 를 기준으로 역스케일 → 확대해도 크기·위치 유지 */
+.map__pin { position: absolute; transform: translate(-50%, -100%) scale(var(--inv, 1)); transform-origin: 50% 100%; border: none; background: none; padding: 0; line-height: 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .2)); }
+.map__pin { width: max-content; }
+.map__pin img { max-width: none; }
 .map__pin--static { pointer-events: none; }
 .map__pin--selected { animation: ssuDrop .35s ease-out both; z-index: 2; }
 .map__list { position: absolute; inset: 0; overflow-y: auto; background: var(--bg-soft); padding: calc(80px + var(--safe-top)) 16px 20px; display: flex; flex-direction: column; gap: 10px; }
@@ -129,6 +135,13 @@ img { display: block; max-width: 100%; }
   background: #fff; border-radius: 25px; box-shadow: 0 4px 14px rgba(20, 60, 90, .12);
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; z-index: 3;
 }
+.map__zoom {
+  position: absolute; right: 14px; top: calc(82px + var(--safe-top)); z-index: 3;
+  display: flex; flex-direction: column; background: #fff; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 4px 14px rgba(20, 60, 90, .14);
+}
+.map__zoom button { width: 40px; height: 40px; border: none; background: #fff; font-size: 20px; font-weight: 500; color: var(--ink-2); line-height: 1; }
+.map__zoom button + button { border-top: 1px solid var(--line); }
 .segmented button { border: none; border-radius: 20px; font-size: 15px; font-weight: 600; background: transparent; color: var(--ink-4); }
 .segmented button[aria-pressed="true"] { background: var(--brand); color: #fff; font-weight: 700; }
 

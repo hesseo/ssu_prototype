@@ -9,15 +9,13 @@
   var REWARD_POINTS = 100;
   var BASE_COUNT = 12;
 
-  // img/sub_map.png(786×1544) 기준 핀 끝점 좌표
-  var MAP_W = 786, MAP_H = 1544;
+  // img/campus_map.png(1966×1176) 기준 핀 끝점 좌표
+  var MAP_W = 1966, MAP_H = 1176;
   var PLACES = [
-    { id: 'sd', name: '숭덕경상관', dist: '32m', floors: ['1F', '2F', '3F'], pin: { x: 191, y: 452 } },
-    { id: 'ai', name: '안익태기념관', dist: '210m', floors: ['1F', '2F'], pin: { x: 205, y: 1372 } },
-    { id: 'hn', name: '형남공학관', dist: '260m', floors: ['1F', '3F', '5F'], pin: { x: 752, y: 1362 } }
+    { id: 'sd', name: '숭덕경상관', dist: '32m', floors: ['1F', '2F', '3F'], pin: { x: 415, y: 548 } },
+    { id: 'ai', name: '안익태기념관', dist: '210m', floors: ['1F', '2F'], pin: { x: 484, y: 1066 } },
+    { id: 'hn', name: '형남공학관', dist: '260m', floors: ['1F', '3F', '5F'], pin: { x: 818, y: 1068 } }
   ];
-  // 지도에 표시만 되는 수거대 핀(시안의 전기차충전소 옆)
-  var STATIC_PINS = [{ x: 727, y: 472 }];
 
   var CHIPS = [
     { id: 'all', label: '전체' },
@@ -198,10 +196,7 @@
   function mapScreen() {
     var body;
     if (state.mapMode === 'map') {
-      body = '<div class="map__canvas"><img src="img/sub_map.png" alt="캠퍼스 지도">' +
-        STATIC_PINS.map(function (pt) {
-          return '<span class="map__pin map__pin--static" style="' + pos(pt) + '">' + PIN_BLUE + '</span>';
-        }).join('') +
+      body = '<div class="map__canvas" style="' + (mapView ? viewStyle(mapView) : '') + '"><img src="img/campus_map.png" alt="캠퍼스 지도" draggable="false">' +
         PLACES.map(function (p) {
           var on = state.sheet === p.id;
           return '<button type="button" class="map__pin' + (on ? ' map__pin--selected' : '') + '" data-action="open-sheet" data-id="' + p.id + '" aria-label="' + p.name + ' 수거대" aria-pressed="' + on + '" style="' + pos(p.pin) + '">' +
@@ -227,6 +222,12 @@
           '<button type="button" data-action="map-mode" data-mode="map" aria-pressed="' + (state.mapMode === 'map') + '">지도</button>' +
           '<button type="button" data-action="map-mode" data-mode="list" aria-pressed="' + (state.mapMode === 'list') + '">리스트</button>' +
         '</div>' +
+        (state.mapMode === 'map'
+          ? '<div class="map__zoom">' +
+              '<button type="button" data-action="zoom" data-dir="in" aria-label="확대">+</button>' +
+              '<button type="button" data-action="zoom" data-dir="out" aria-label="축소">−</button>' +
+            '</div>'
+          : '') +
       '</div>';
   }
 
@@ -460,6 +461,166 @@
     return state.toast ? '<div class="toast" role="status">' + state.toast + '</div>' : '';
   }
 
+  /* ---------- Map pan / zoom ---------- */
+  // 지도 이미지를 translate + scale 로 움직여요. 핀은 --inv 로 역스케일해서 크기 유지.
+  // 배율 1 = 지도 높이가 화면을 꽉 채우는 크기(가로로는 넓게 남아서 좌우로 둘러볼 수 있음)
+  var MAX_ZOOM = 2;
+  var mapView = null;          // { x, y, s, bw } — 처음 지도에 들어갈 때 initialView 로 채움
+  var pendingFocus = null;     // 다음 렌더 후 부드럽게 이동할 장소 id
+
+  function viewStyle(v) {
+    return 'width:' + v.bw + 'px;transform:translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.s + ');--inv:' + (1 / v.s);
+  }
+
+  function baseSize(vp) {
+    var w = Math.max(vp.clientWidth, vp.clientHeight * MAP_W / MAP_H);
+    return { w: w, h: w * MAP_H / MAP_W };
+  }
+
+  // 세 수거대가 가로 가운데 오도록 시작
+  function initialView(vp) {
+    var b = baseSize(vp);
+    var avgX = PLACES.reduce(function (sum, p) { return sum + p.pin.x; }, 0) / PLACES.length;
+    return { s: 1, x: vp.clientWidth / 2 - avgX / MAP_W * b.w, y: 0 };
+  }
+  function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+  function mapEls() {
+    var vp = app.querySelector('.map');
+    var canvas = vp && vp.querySelector('.map__canvas');
+    return canvas ? { vp: vp, canvas: canvas } : null;
+  }
+
+  function clampView(v, vp) {
+    var W = vp.clientWidth, H = vp.clientHeight;
+    var b = baseSize(vp);
+    var sc = clamp(v.s, 1, MAX_ZOOM);
+    var cw = b.w * sc, ch = b.h * sc;
+    // 바텀시트가 열려 있으면 그 높이만큼 아래로 더 끌어올릴 수 있게 (아래쪽 핀도 시트 위로)
+    var sheetEl = app.querySelector('.sheet');
+    var extra = sheetEl ? Math.max(0, sheetEl.offsetHeight - (app.clientHeight - H)) : 0;
+    var contentH = ch + extra;
+    return {
+      bw: b.w,
+      s: sc,
+      x: clamp(v.x, W - cw, 0),
+      y: contentH > H ? clamp(v.y, H - contentH, 0) : 0
+    };
+  }
+
+  function setView(v, animate) {
+    var m = mapEls();
+    if (!m) return;
+    mapView = clampView(v || initialView(m.vp), m.vp);
+    m.canvas.classList.toggle('is-animating', !!animate);
+    m.canvas.setAttribute('style', viewStyle(mapView));
+  }
+
+  // 화면 좌표 (px, py) 를 고정점으로 확대/축소
+  function zoomAt(px, py, nextScale, animate) {
+    var v = mapView;
+    var sc = clamp(nextScale, 1, MAX_ZOOM);
+    setView({ s: sc, x: px - (px - v.x) * sc / v.s, y: py - (py - v.y) * sc / v.s }, animate);
+  }
+
+  // 장소 핀을 시트 위 보이는 영역 가운데로
+  function focusPlace(id) {
+    var m = mapEls();
+    var p = placeById(id);
+    if (!m || !p) return;
+    var W = m.vp.clientWidth;
+    var b = baseSize(m.vp);
+    var sheetEl = app.querySelector('.sheet');
+    // 시트는 화면 맨 아래에 붙어 있으니, 지도에서 보이는 영역은 시트 윗변까지
+    var visibleBottom = sheetEl ? app.clientHeight - sheetEl.offsetHeight : m.vp.clientHeight;
+    var targetY = (72 + visibleBottom) / 2 + 30;   // 핀 끝이 살짝 아래로 오게
+    var sc = Math.max(mapView.s, 1.4);
+    var wx = p.pin.x / MAP_W * b.w, wy = p.pin.y / MAP_H * b.h;
+    setView({ s: sc, x: W / 2 - wx * sc, y: targetY - wy * sc }, true);
+  }
+
+  function bindMap() {
+    var m = mapEls();
+    if (!m) return;
+    var vp = m.vp;
+    var pointers = {};
+    var start = null;           // 제스처 시작 시점의 뷰와 포인터 정보
+    var moved = false;
+    var lastTap = null;
+
+    function rel(e) {
+      var r = vp.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+    function snapshot() {
+      var ids = Object.keys(pointers);
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      start = { view: mapView, a: a };
+      if (b) {
+        start.mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        start.dist = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+    }
+
+    vp.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.segmented, .map__zoom')) return;
+      pointers[e.pointerId] = rel(e);
+      moved = false;
+      snapshot();
+    });
+
+    vp.addEventListener('pointermove', function (e) {
+      if (!pointers[e.pointerId]) return;
+      pointers[e.pointerId] = rel(e);
+      var ids = Object.keys(pointers);
+      if (ids.length >= 2 && start.dist) {
+        var a = pointers[ids[0]], b = pointers[ids[1]];
+        var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        var sc = clamp(start.view.s * Math.hypot(a.x - b.x, a.y - b.y) / start.dist, 1, MAX_ZOOM);
+        var wx = (start.mid.x - start.view.x) / start.view.s, wy = (start.mid.y - start.view.y) / start.view.s;
+        moved = true;
+        setView({ s: sc, x: mid.x - wx * sc, y: mid.y - wy * sc });
+      } else if (ids.length === 1) {
+        var p = pointers[ids[0]];
+        var dx = p.x - start.a.x, dy = p.y - start.a.y;
+        if (!moved && Math.hypot(dx, dy) < 6) return;   // 탭과 드래그 구분
+        if (!moved) { moved = true; vp.setPointerCapture(e.pointerId); }
+        setView({ s: start.view.s, x: start.view.x + dx, y: start.view.y + dy });
+      }
+    });
+
+    function end(e) {
+      if (!pointers[e.pointerId]) return;
+      var p = pointers[e.pointerId];
+      delete pointers[e.pointerId];
+      if (Object.keys(pointers).length) { snapshot(); return; }
+      // 빈 곳 두 번 탭 → 확대 (최대면 원래대로)
+      if (!moved && !e.target.closest('.map__pin')) {
+        var now = Date.now();
+        if (lastTap && now - lastTap.t < 300 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30) {
+          if (mapView.s >= MAX_ZOOM - .01) setView(initialView(vp), true);
+          else zoomAt(p.x, p.y, mapView.s * 2, true);
+          lastTap = null;
+        } else {
+          lastTap = { t: now, x: p.x, y: p.y };
+        }
+      }
+    }
+    vp.addEventListener('pointerup', end);
+    vp.addEventListener('pointercancel', end);
+
+    // 드래그로 끝난 경우 핀 클릭이 눌리지 않게
+    vp.addEventListener('click', function (e) {
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+
+    vp.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var p = rel(e);
+      zoomAt(p.x, p.y, mapView.s * Math.exp(-e.deltaY * 0.0025));
+    }, { passive: false });
+  }
+
   /* ---------- Render ---------- */
   var lastScreen = null;
 
@@ -488,6 +649,18 @@
     var next = app.querySelector('.scroll');
     if (next) next.scrollTop = keepScroll;
     lastScreen = s;
+
+    if (s === 'map' && state.mapMode === 'map') {
+      bindMap();
+      // 시트가 닫히거나 창 크기가 바뀌면 범위가 달라지니 부드럽게 다시 맞춤
+      void app.querySelector('.map__canvas').offsetWidth;
+      setView(mapView, !!mapView);   // 처음 들어올 땐 애니메이션 없이 시작 위치로
+      if (pendingFocus) {
+        var id = pendingFocus;
+        pendingFocus = null;
+        requestAnimationFrame(function () { focusPlace(id); });
+      }
+    }
   }
 
   /* ---------- Actions ---------- */
@@ -495,7 +668,16 @@
     go: function (el) { go(el.dataset.to); },
     back: function () { setState({ screen: state.prev || 'home' }); },
     'map-mode': function (el) { setState({ mapMode: el.dataset.mode, sheet: null }); },
-    'open-sheet': function (el) { setState({ screen: 'map', sheet: el.dataset.id }); },
+    'open-sheet': function (el) {
+      pendingFocus = el.dataset.id;
+      setState({ screen: 'map', mapMode: 'map', sheet: el.dataset.id });
+    },
+    zoom: function (el) {
+      var m = mapEls();
+      if (!m) return;
+      var f = el.dataset.dir === 'in' ? 1.6 : 1 / 1.6;
+      zoomAt(m.vp.clientWidth / 2, m.vp.clientHeight / 2, mapView.s * f, true);
+    },
     'close-sheet': function () { setState({ sheet: null }); },
     'floor-qr': function (el) {
       setState({ place: el.dataset.id, floor: el.dataset.floor.replace('F', '층'), screen: 'qr', prev: 'map', sheet: null });
